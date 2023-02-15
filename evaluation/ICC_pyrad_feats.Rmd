@@ -1,0 +1,79 @@
+---
+title: "ICC for pyradiomics features"
+output: html_notebook
+---
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(pROC)
+library(stringr)
+library(outliers)
+library(psych)
+library(irr)
+
+# Radiomics features extracted from manual delineations and predicted segmentations
+# csv file output from Pyradiomics
+df1 = read.csv(file = 'feats_1.csv')
+df2 = read.csv(file = 'feats_2.csv')
+```
+
+```{r}
+# Calculate ICCs; Radiomics features in column No.43-No.1260
+func_ICCs <- function(df1, df2, colrange){
+  col_min = colrange[1]
+  col_max = colrange[2]
+  ICCs = rep(0, col_max-col_min+1)
+  for (ii in col_min:col_max){
+    df_icc <- data.frame(R1=df1[, ii], R2=df2[, ii])
+    results = icc(df_icc, model = c("twoway"), type = c("agreement"), unit = c("average"))
+    ICCs[ii-col_min+1] = results['value']
+  }
+  return(as.numeric(ICCs))
+}
+
+ICCs = func_ICCs(df1, df2, c(43, 1260))
+```
+
+```{r}
+
+PercentAbove <- function(x, threshold){
+  100*length(x = x[x > threshold]) / length(x = x)
+}
+
+# calculate percentages of features with ICC above selected threshold
+gen_df_plot <- function(ICCs, thres_min, thres_max, thres_diff){
+  percs = c()
+  thres = seq(thres_min, thres_max, by=thres_diff)
+  for (ii in thres){
+    pa = PercentAbove(ICCs, ii)
+    percs = append(percs, pa)
+  }
+  df_plot = data.frame(R1=thres, R2=percs)
+  return(df_plot)
+}
+
+```
+
+```{r}
+ICCs1 = ICCs[ICCs <= 0.9] # ignore features with ICC>0.9
+ICCs2 = ICCs[ICCs <= 0.8] # ignore features with ICC>0.8
+df_plot0 = gen_df_plot(ICCs, 0, 1.0, 0.02)
+df_plot1 = gen_df_plot(ICCs1, 0, 0.9, 0.02)
+df_plot2 = gen_df_plot(ICCs2, 0, 0.8, 0.02)
+```
+
+
+```{r}
+# save ICCs and load in Python!
+# Modify figure is too complicated in R!!!
+
+#saveRDS(df_plot0, file = "df_plot0.rds")
+#saveRDS(df_plot1, file = "df_plot1.rds")
+#saveRDS(df_plot2, file = "df_plot2.rds")
+
+saveRDS(ICCs, file = "df_ICC0.rds")
+saveRDS(ICCs1, file = "df_ICC1.rds")
+saveRDS(ICCs2, file = "df_ICC2.rds")
+```
+
